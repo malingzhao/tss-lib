@@ -42,3 +42,16 @@ func derivingPubkeyFromPath(masterPub *crypto.ECPoint, chainCode []byte, path []
 
 	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
 }
+
+func derivingPubkeyFromPathEddsa(masterPub *crypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKeyEddsa, error) {
+	extendedParentPk := &ckd.ExtendedKeyEddsa{
+		PublicKey:  masterPub,
+		Depth:      0,
+		ChildIndex: 0,
+		ChainCode:  chainCode[:],
+		ParentFP:   []byte{0x00, 0x00, 0x00, 0x00},
+		Version:    []byte{0x02, 0xe8, 0xda, 0x54},
+	}
+
+	return ckd.DeriveChildKeyFromHierarchyEddsa(path, extendedParentPk, ec.Params().N, ec)
+}

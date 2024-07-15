@@ -32,9 +32,9 @@ func UpdatePublicKeyAndAdjustBigXj(keyDerivationDelta *big.Int, keys []keygen.Lo
 	return nil
 }
 
-func derivingPubkeyFromPath(masterPub *crypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKey, error) {
+func derivingPubkeyFromPathEddsa(masterPub *crypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKeyEddsa, error) {
 	net := &chaincfg.MainNetParams
-	extendedParentPk := &ckd.ExtendedKey{
+	extendedParentPk := &ckd.ExtendedKeyEddsa{
 		PublicKey:  masterPub,
 		Depth:      0,
 		ChildIndex: 0,
@@ -43,5 +43,5 @@ func derivingPubkeyFromPath(masterPub *crypto.ECPoint, chainCode []byte, path []
 		Version:    net.HDPrivateKeyID[:],
 	}
 
-	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
+	return ckd.DeriveChildKeyFromHierarchyEddsa(path, extendedParentPk, ec.Params().N, ec)
 }

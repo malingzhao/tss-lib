@@ -9,6 +9,8 @@ package ckd_test
 import (
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -188,6 +190,35 @@ func derivingPubkeyFromPath(masterPub *crypto.ECPoint, chainCode []byte, path []
 	}
 
 	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
+}
+
+func derivingPubkeyFromPathEddsa(masterPub *crypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKey, error) {
+	net := &chaincfg.MainNetParams
+	extendedParentPk := &ckd.ExtendedKey{
+		PublicKey:  masterPub,
+		Depth:      0,
+		ChildIndex: 0,
+		ChainCode:  chainCode[:],
+		ParentFP:   []byte{0x00, 0x00, 0x00, 0x00},
+		Version:    net.HDPrivateKeyID[:],
+	}
+
+	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
+}
+
+func TestEddsaPublicDerivation2(t *testing.T) {
+
+	pub, _ := hex.DecodeString("25fa6bc6987889eb34af28f78960f3cc341b40c0fc0500142c0efb2196396bad")
+	chainCode, _ := hex.DecodeString("26c536cc9ffd1da1dab1a791317f28dc32ac215efd515e89cae7ef1e40af326a")
+	key, _ := edwards.ParsePubKey(pub)
+
+	point, _ := crypto.NewECPoint(edwards.Edwards(), key.X, key.Y)
+	// 44/637/0/0/10
+	_, extendedChildPk, _ := derivingPubkeyFromPathEddsa(point, chainCode, []uint32{44, 637, 0, 0, 10}, edwards.Edwards())
+
+	publicKey := edwards.NewPublicKey(extendedChildPk.PublicKey.X(), extendedChildPk.PublicKey.Y())
+
+	fmt.Println("the pub is ", hex.EncodeToString(publicKey.SerializeCompressed()))
 }
 
 func fillBytes(x *big.Int, buf []byte) []byte {

@@ -6,23 +6,19 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"hash"
 	"math/big"
 
 	"github.com/bnb-chain/tss-lib/v2/common"
 	"github.com/bnb-chain/tss-lib/v2/crypto"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcutil/base58"
-	"golang.org/x/crypto/ripemd160"
+	"github.com/decred/dcrd/dcrec/edwards/v2"
 )
 
-type ExtendedKey struct {
+type ExtendedKeyEddsa struct {
 	PublicKey  *crypto.ECPoint
 	Depth      uint8
 	ChildIndex uint32
@@ -39,28 +35,16 @@ type ExtendedKey struct {
 const (
 
 	// HardenedKeyStart hardened key starts.
-	HardenedKeyStart = 0x80000000 // 2^31
+	EDDSA_HardenedKeyStart = 0x80000000 // 2^31
 
 	// max Depth
-	maxDepth = 1<<8 - 1
+	eddsa_maxDepth = 1<<8 - 1
 
-	PubKeyBytesLenCompressed = 33
-
-	pubKeyCompressed byte = 0x2
-
-	serializedKeyLen = 78
-
-	// MinSeedBytes is the minimum number of bytes allowed for a seed to
-	// a master node.
-	MinSeedBytes = 16 // 128 bits
-
-	// MaxSeedBytes is the maximum number of bytes allowed for a seed to
-	// a master node.
-	MaxSeedBytes = 64 // 512 bits
+	Eddsa_PubKeyBytesLenCompressed = 33
 )
 
 // Extended public key serialization, defined in BIP32
-func (k *ExtendedKey) String() string {
+func (k *ExtendedKeyEddsa) String() string {
 	// version(4) || depth(1) || parentFP (4) || childinde(4) || chaincode (32) || key(33) || checksum(4)
 	var childNumBytes [4]byte
 	binary.BigEndian.PutUint32(childNumBytes[:], k.ChildIndex)
@@ -71,7 +55,8 @@ func (k *ExtendedKey) String() string {
 	serializedBytes = append(serializedBytes, k.ParentFP...)
 	serializedBytes = append(serializedBytes, childNumBytes[:]...)
 	serializedBytes = append(serializedBytes, k.ChainCode...)
-	pubKeyBytes := serializeCompressed(k.PublicKey.X(), k.PublicKey.Y())
+	edwards_pub := edwards.NewPublicKey(k.PublicKey.X(), k.PublicKey.Y())
+	pubKeyBytes := CompressEDDSAPubKey(edwards_pub)
 	serializedBytes = append(serializedBytes, pubKeyBytes...)
 
 	checkSum := doubleHashB(serializedBytes)[:4]
@@ -80,7 +65,7 @@ func (k *ExtendedKey) String() string {
 }
 
 // NewExtendedKeyFromString returns a new extended key from a base58-encoded extended key
-func NewExtendedKeyFromString(key string, curve elliptic.Curve) (*ExtendedKey, error) {
+func NewExtendedKeyEddsaFromString(key string, curve elliptic.Curve) (*ExtendedKeyEddsa, error) {
 	// version(4) || depth(1) || parentFP (4) || childinde(4) || chaincode (32) || key(33) || checksum(4)
 
 	decoded := base58.Decode(key)
@@ -124,7 +109,7 @@ func NewExtendedKeyFromString(key string, curve elliptic.Curve) (*ExtendedKey, e
 		}
 	}
 
-	return &ExtendedKey{
+	return &ExtendedKeyEddsa{
 		PublicKey:  pubKey,
 		Depth:      depth,
 		ChildIndex: childNum,
@@ -134,61 +119,15 @@ func NewExtendedKeyFromString(key string, curve elliptic.Curve) (*ExtendedKey, e
 	}, nil
 }
 
-func doubleHashB(b []byte) []byte {
-	first := sha256.Sum256(b)
-	second := sha256.Sum256(first[:])
-	return second[:]
-}
-
-func calcHash(buf []byte, hasher hash.Hash) []byte {
-	hasher.Write(buf)
-	return hasher.Sum(nil)
-}
-
-func hash160(buf []byte) []byte {
-	return calcHash(calcHash(buf, sha256.New()), ripemd160.New())
-}
-
-func isOdd(a *big.Int) bool {
-	return a.Bit(0) == 1
-}
-
-// PaddedAppend append src to dst, if less than size padding 0 at start
-func paddedAppend(dst []byte, srcPaddedSize int, src []byte) []byte {
-	return append(dst, paddedBytes(srcPaddedSize, src)...)
-}
-
-// PaddedBytes padding byte array to size length
-func paddedBytes(size int, src []byte) []byte {
-	offset := size - len(src)
-	tmp := src
-	if offset > 0 {
-		tmp = make([]byte, size)
-		copy(tmp[offset:], src)
-	}
-	return tmp
-}
-
-// SerializeCompressed serializes a public key 33-byte compressed format
-func serializeCompressed(publicKeyX *big.Int, publicKeyY *big.Int) []byte {
-	b := make([]byte, 0, PubKeyBytesLenCompressed)
-	format := pubKeyCompressed
-	if isOdd(publicKeyY) {
-		format |= 0x1
-	}
-	b = append(b, format)
-	return paddedAppend(b, 32, publicKeyX.Bytes())
-}
-
-func DeriveChildKeyFromHierarchy(indicesHierarchy []uint32, pk *ExtendedKey, mod *big.Int, curve elliptic.Curve) (*big.Int, *ExtendedKey, error) {
+func DeriveChildKeyFromHierarchyEddsa(indicesHierarchy []uint32, pk *ExtendedKeyEddsa, mod *big.Int, curve elliptic.Curve) (*big.Int, *ExtendedKeyEddsa, error) {
 	var k = pk
 	var err error
-	var childKey *ExtendedKey
+	var childKey *ExtendedKeyEddsa
 	mod_ := common.ModInt(mod)
 	ilNum := big.NewInt(0)
 	for index := range indicesHierarchy {
 		ilNumOld := ilNum
-		ilNum, childKey, err = DeriveChildKey(indicesHierarchy[index], k, curve)
+		ilNum, childKey, err = DeriveChildKeyEddssa(indicesHierarchy[index], k, curve)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -200,29 +139,28 @@ func DeriveChildKeyFromHierarchy(indicesHierarchy []uint32, pk *ExtendedKey, mod
 
 // DeriveChildKey Derive a child key from the given parent key. The function returns "IL" ("I left"), per BIP-32 spec. It also
 // returns the derived child key.
-func DeriveChildKey(index uint32, pk *ExtendedKey, curve elliptic.Curve) (*big.Int, *ExtendedKey, error) {
-	if index >= HardenedKeyStart {
+func DeriveChildKeyEddssa(index uint32, pk *ExtendedKeyEddsa, curve elliptic.Curve) (*big.Int, *ExtendedKeyEddsa, error) {
+	if index >= EDDSA_HardenedKeyStart {
 		return nil, nil, errors.New("the index must be non-hardened")
 	}
-	if pk.Depth == maxDepth {
+	if pk.Depth == eddsa_maxDepth {
 		return nil, nil, errors.New("cannot derive key beyond max depth")
 	}
 
 	cryptoPk := pk.PublicKey
 
-	pkPublicKeyBytes := serializeCompressed(pk.PublicKey.X(), pk.PublicKey.Y())
-
+	pub := edwards.NewPublicKey(pk.PublicKey.X(), pk.PublicKey.Y())
 	data := make([]byte, 37)
-	copy(data, pkPublicKeyBytes)
+	pkPublicKeyBytes := CompressEDDSAPubKey(pub)
+	if index > HardenedKeyStart {
+		data = append([]byte{0x0}, data...)
+	}
 	binary.BigEndian.PutUint32(data[33:], index)
 
-	fmt.Println("the index is ", hex.EncodeToString(data[33:]))
-	fmt.Println("the code is ", hex.EncodeToString(data))
 	// I = HMAC-SHA512(Key = chainCode, Data=data)
 	hmac512 := hmac.New(sha512.New, pk.ChainCode)
 	hmac512.Write(data)
 	ilr := hmac512.Sum(nil)
-	fmt.Println("the ilr is ", hex.EncodeToString(ilr))
 	il := ilr[:32]
 	childChainCode := ilr[32:]
 	ilNum := new(big.Int).SetBytes(il)
@@ -248,7 +186,7 @@ func DeriveChildKey(index uint32, pk *ExtendedKey, curve elliptic.Curve) (*big.I
 		return nil, nil, err
 	}
 
-	childPk := &ExtendedKey{
+	childPk := &ExtendedKeyEddsa{
 		PublicKey:  childCryptoPk,
 		Depth:      pk.Depth + 1,
 		ChildIndex: index,
@@ -257,4 +195,13 @@ func DeriveChildKey(index uint32, pk *ExtendedKey, curve elliptic.Curve) (*big.I
 		Version:    pk.Version,
 	}
 	return ilNum, childPk, nil
+}
+
+// CompressEDDSAPubKey serializes a public key 33-byte compressed format.
+func CompressEDDSAPubKey(pubKey *edwards.PublicKey) []byte {
+	b := make([]byte, 0, 33)
+	b = append(b, 0x0)
+	b = append(b, pubKey.SerializeCompressed()...)
+
+	return b
 }
