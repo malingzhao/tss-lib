@@ -152,9 +152,8 @@ func DeriveChildKeyEddssa(index uint32, pk *ExtendedKeyEddsa, curve elliptic.Cur
 	pub := edwards.NewPublicKey(pk.PublicKey.X(), pk.PublicKey.Y())
 	data := make([]byte, 37)
 	pkPublicKeyBytes := CompressEDDSAPubKey(pub)
-	if index > HardenedKeyStart {
-		data = append([]byte{0x0}, data...)
-	}
+	copy(data[:], pkPublicKeyBytes[:])
+
 	binary.BigEndian.PutUint32(data[33:], index)
 
 	// I = HMAC-SHA512(Key = chainCode, Data=data)

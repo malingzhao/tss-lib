@@ -241,7 +241,7 @@ func TestE2EWithHDKeyDerivation(t *testing.T) {
 	max32b = new(big.Int).Sub(max32b, new(big.Int).SetUint64(1))
 	fillBytes(common.GetRandomPositiveInt(rand.Reader, max32b), chainCode)
 
-	il, extendedChildPk, errorDerivation := derivingPubkeyFromPath(keys[0].ECDSAPub, chainCode, []uint32{12, 209, 3}, btcec.S256())
+	il, extendedChildPk, errorDerivation := derivingPubkeyFromPathEddsa(keys[0].ECDSAPub, chainCode, []uint32{12, 209, 3}, btcec.S256())
 	assert.NoErrorf(t, errorDerivation, "there should not be an error deriving the child public key")
 
 	keyDerivationDelta := il

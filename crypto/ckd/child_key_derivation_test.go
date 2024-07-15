@@ -192,9 +192,9 @@ func derivingPubkeyFromPath(masterPub *crypto.ECPoint, chainCode []byte, path []
 	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
 }
 
-func derivingPubkeyFromPathEddsa(masterPub *crypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKey, error) {
+func derivingPubkeyFromPathEddsa(masterPub *crypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKeyEddsa, error) {
 	net := &chaincfg.MainNetParams
-	extendedParentPk := &ckd.ExtendedKey{
+	extendedParentPk := &ckd.ExtendedKeyEddsa{
 		PublicKey:  masterPub,
 		Depth:      0,
 		ChildIndex: 0,
@@ -203,7 +203,7 @@ func derivingPubkeyFromPathEddsa(masterPub *crypto.ECPoint, chainCode []byte, pa
 		Version:    net.HDPrivateKeyID[:],
 	}
 
-	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
+	return ckd.DeriveChildKeyFromHierarchyEddsa(path, extendedParentPk, ec.Params().N, ec)
 }
 
 func TestEddsaPublicDerivation2(t *testing.T) {
@@ -214,7 +214,7 @@ func TestEddsaPublicDerivation2(t *testing.T) {
 
 	point, _ := crypto.NewECPoint(edwards.Edwards(), key.X, key.Y)
 	// 44/637/0/0/10
-	_, extendedChildPk, _ := derivingPubkeyFromPathEddsa(point, chainCode, []uint32{44, 637, 0, 0, 10}, edwards.Edwards())
+	_, extendedChildPk, _ := derivingPubkeyFromPathEddsa(point, chainCode, []uint32{44, 637, 0, 0, 12}, edwards.Edwards())
 
 	publicKey := edwards.NewPublicKey(extendedChildPk.PublicKey.X(), extendedChildPk.PublicKey.Y())
 
