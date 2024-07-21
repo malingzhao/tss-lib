@@ -88,9 +88,12 @@ func TestE2EConcurrent(t *testing.T) {
 			save.LocalPreParams = fixtures[j].LocalPreParams
 		}
 		P := NewLocalParty(params, save, outCh, endCh).(*LocalParty)
+		fmt.Println("the index is ", P.PartyID().Index)
 		newCommittee = append(newCommittee, P)
 	}
 
+	fmt.Println("the len committees is ", len(oldCommittee))
+	fmt.Println("the new committees is ", len(newCommittee))
 	// start the new parties; they will wait for messages
 	for _, P := range newCommittee {
 		go func(P *LocalParty) {
@@ -120,16 +123,20 @@ func TestE2EConcurrent(t *testing.T) {
 			return
 
 		case msg := <-outCh:
+			common.Logger.Info("the msg is ", msg)
 			dest := msg.GetTo()
 			if dest == nil {
 				t.Fatal("did not expect a msg to have a nil destination during resharing")
 			}
+
 			if msg.IsToOldCommittee() || msg.IsToOldAndNewCommittees() {
-				for _, destP := range dest[:len(oldCommittee)] {
-					go updater(oldCommittee[destP.Index], msg, errCh)
+				// common.Logger.Info("the old dest is ", dest[:len(oldCommittee)])
+				for _, destP := range oldCommittee {
+					go updater(oldCommittee[destP.PartyID().Index], msg, errCh)
 				}
 			}
 			if !msg.IsToOldCommittee() || msg.IsToOldAndNewCommittees() {
+				common.Logger.Info("the dest is ", dest, "the len dest is ", len(dest), " len(newCommittee) is  ", len(newCommittee))
 				for _, destP := range dest {
 					go updater(newCommittee[destP.Index], msg, errCh)
 				}

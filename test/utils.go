@@ -7,12 +7,15 @@
 package test
 
 import (
+	"github.com/bnb-chain/tss-lib/v2/common"
 	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func SharedPartyUpdater(party tss.Party, msg tss.Message, errCh chan<- *tss.Error) {
+	common.Logger.Info("the party is ", party, " the msg is ", msg)
 	// do not send a message from this party back to itself
 	if party.PartyID() == msg.GetFrom() {
+		common.Logger.Info("the party id is ", party.PartyID(), " return ")
 		return
 	}
 	bz, _, err := msg.WireBytes()

@@ -24,6 +24,10 @@ func PrepareForSigning(ec elliptic.Curve, i, pax int, xi *big.Int, ks []*big.Int
 	if len(ks) != pax {
 		panic(fmt.Errorf("PrepareForSigning: len(ks) != pax (%d != %d)", len(ks), pax))
 	}
+
+	common.Logger.Info("the len(ks) is ", len(ks))
+	common.Logger.Info("the i is ", i)
+
 	if len(ks) <= i {
 		panic(fmt.Errorf("PrepareForSigning: len(ks) <= i (%d <= %d)", len(ks), i))
 	}

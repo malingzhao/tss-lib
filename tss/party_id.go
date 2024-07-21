@@ -91,8 +91,8 @@ func GenerateTestPartyIDs(count int, startAt ...int) SortedPartyIDs {
 	for ; i < count+frm; i++ {
 		ids = append(ids, &PartyID{
 			MessageWrapper_PartyID: &MessageWrapper_PartyID{
-				Id:      fmt.Sprintf("%d", i+1),
-				Moniker: fmt.Sprintf("P[%d]", i+1),
+				Id:      fmt.Sprintf("new%d", i+1),
+				Moniker: fmt.Sprintf("P_new[%d]", i+1),
 				Key:     new(big.Int).Sub(key, big.NewInt(int64(count)-int64(i))).Bytes(),
 			},
 			Index: i,
